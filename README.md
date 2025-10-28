@@ -18,9 +18,9 @@ https://portal.gurobi.com/iam/login/?target=https%3A%2F%2Fportal.gurobi.com%2Fia
 注册并登入
 ```
 
+<img width="1519" height="824" alt="image-20250806025756302" src="https://github.com/user-attachments/assets/133050c2-4512-417a-8f51-0809f98b9598" />
 
 
-![image-20250806025756302](image-20250806025756302.png)
 
 
 
@@ -451,5 +451,6 @@ LLM输出：“请用如下参数调用储能调度优化器……”
 | torch        | 2.7.1  |
 | langchain    | 0.3.27 |
 | transformers | 4.55.0 |
+
 
 
