@@ -210,29 +210,29 @@ AgentWeb/
 ##### 6.1 后端
 
 * **FastAPI：** 现代异步Web框架，提供RESTful API和网页服务，支持高性能异步、流式响应。
-* **LangChain：**智能体框架，负责大模型与工具链的集成、对话管理、参数抽取等。
-* **Transformers (HuggingFace)：**用于本地大模型（如 Qwen-Instruct）的加载与推理。
-* **torch (PyTorch)：**本地大模型推理的底层依赖，支持GPU加速。
-* **gurobipy：**Gurobi 优化器Python接口，负责储能调度优化的数学建模与求解。
-* **langchain_openai / langchain_huggingface：**分别用于API大模型和本地大模型的LangChain适配。
+* **LangChain：** 智能体框架，负责大模型与工具链的集成、对话管理、参数抽取等。
+* **Transformers (HuggingFace)：** 用于本地大模型（如 Qwen-Instruct）的加载与推理。
+* **torch (PyTorch)：** 本地大模型推理的底层依赖，支持GPU加速。
+* **gurobipy：** Gurobi 优化器Python接口，负责储能调度优化的数学建模与求解。
+* **langchain_openai / langchain_huggingface：** 分别用于API大模型和本地大模型的LangChain适配。
 
 ##### 6.2 前端
 
-* **HTML5 + CSS3：**结构与样式，响应式布局，现代化美观设计。
-* **原生 JavaScript：**实现聊天交互、流式渲染、Markdown解析、输入框自适应等功能。
-* **Markdown 渲染：**支持AI回复内容的格式化展示，包括表格、代码块、列表等。
+* **HTML5 + CSS3：** 结构与样式，响应式布局，现代化美观设计。
+* **原生 JavaScript：** 实现聊天交互、流式渲染、Markdown解析、输入框自适应等功能。
+* **Markdown 渲染：** 支持AI回复内容的格式化展示，包括表格、代码块、列表等。
 
 ##### 6.3 其他
 
-* **依赖管理：**通过 `requirements.txt` 管理所有Python依赖包。
+* **依赖管理：** 通过 `requirements.txt` 管理所有Python依赖包。
 
-* **本地大模型权重：**存放于 `config/llm/qwen-Instruct/`，包含模型、分词器、配置等文件。
-* **云端API：**支持调用 OpenAI 或阿里云 DashScope 等大模型API。
+* **本地大模型权重：** 存放于 `config/llm/qwen-Instruct/`，包含模型、分词器、配置等文件。
+* **云端API：** 支持调用 OpenAI 或阿里云 DashScope 等大模型API。
 
 ##### 6.4 扩展
 
-* **Jupyter Notebook：**便于调试和算法原型开发。
-* **Docker：**待定
+* **Jupyter Notebook：** 便于调试和算法原型开发。
+* **Docker：** 待定
 
 
 
@@ -451,6 +451,7 @@ LLM输出：“请用如下参数调用储能调度优化器……”
 | torch        | 2.7.1  |
 | langchain    | 0.3.27 |
 | transformers | 4.55.0 |
+
 
 
 
