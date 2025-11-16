@@ -1,13 +1,9 @@
-from typing import List, Dict, Any
-from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from pydantic import BaseModel, Field
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain.output_parsers import OutputFixingParser
-from random import uniform
-from dashscope import Application
-import json
+from tools import implement_scheduling_decision, search_weather, get_knowledge
+from baseclass import BatteryOptimizationInput
+
 
 # 假设你有这个配置，如果没有需要替换为你的LLM配置
 from config.config import llm
@@ -285,8 +281,12 @@ class BatterySchedulingAgent:
 
     def __init__(self, llm):
         self.llm = llm
-        self.available_tools = {"implement_scheduling_decision": implement_scheduling_decision, "search_weather": search_weather}
-        self.llm_with_tools = llm.bind_tools([implement_scheduling_decision, search_weather])
+        self.available_tools = {
+            "implement_scheduling_decision": implement_scheduling_decision,
+            "search_weather": search_weather,
+            "get_knowledge": get_knowledge  
+            }
+        self.llm_with_tools = llm.bind_tools([implement_scheduling_decision, search_weather, get_knowledge])
         parser = JsonOutputParser(pydantic_object=BatteryOptimizationInput)
         # 参数提取的提示模板
         self.extract_prompt = PromptTemplate(
@@ -312,37 +312,76 @@ class BatterySchedulingAgent:
             partial_variables={"format_instructions": parser.get_format_instructions()},
         )
 
-    def process_query(self, query: str) -> str:
-        """处理用户查询"""
-        try:
-            # 构建消息
-            prompt_msg = self.extract_prompt.format(query=query)
-            messages = [HumanMessage(content=prompt_msg)]
+        
+    async def process_query_stream(self, query: str):
+            """流式处理用户查询 - 改进版本"""
+            try:
+                prompt_msg = self.extract_prompt.format(query=query)
+                messages = [HumanMessage(content=prompt_msg)]
 
-            # 循环处理工具调用
-            while True:
-                output = self.llm_with_tools.invoke(messages)
-                messages.append(output)
-                print(output.content)
-                # 如果没有工具调用，返回最终结果
-                if not output.tool_calls:
-                    break
+                while True:
+                    full_content = ""
+                    tool_calls_data = []# 保存最后一个chunk
+                    
+                    # 检查是否支持异步流式
+                    if hasattr(self.llm_with_tools, 'astream') and None:
+                        print("异步流式")
+                        try:
+                            async for chunk in self.llm_with_tools.astream(messages):
+                                print(chunk, "\n")
+                                if hasattr(chunk, 'content') and chunk.content:
+                                    full_content += chunk.content
+                                    yield chunk.content  # 立即返回内容
+                                
+                                if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                                    tool_calls_data.extend(chunk.tool_calls)
+                            
+                            output = AIMessage(content=full_content, tool_calls=tool_calls_data)
+                        except Exception as e:
+                            print(f"异步流式调用失败: {e}")
+                            # 降级到普通调用
+                            output = self.llm_with_tools.invoke(messages)
+                            yield output.content
+                
+                    
+                    # 不支持流式，使用普通调用
+                    else:
+                        # print("LLM不支持流式输出，使用普通调用")
+                        output = self.llm_with_tools.invoke(messages)
+                        # 模拟流式输出，每次返回几个字符
+                        content = output.content
+                        chunk_size = 10
+                        for i in range(0, len(content), chunk_size):
+                            yield content[i:i+chunk_size]
+                            import asyncio
+                            await asyncio.sleep(0.05)
+                    
+                    messages.append(output)
 
-                # 处理工具调用
-                for tool_call in output.tool_calls:
-                    tool_name = tool_call["name"]
-                    if tool_name in self.available_tools:
-                        selected_tool = self.available_tools[tool_name]
-                        # print(selected_tool)
-                        tool_result = selected_tool.invoke(tool_call["args"])
-                        messages.append(ToolMessage(
-                            content=str(tool_result),
-                            tool_call_id=tool_call["id"]
-                        ))
-            return output.content
+                    # 如果没有工具调用，结束循环
+                    if not output.tool_calls:
+                        break
 
-        except Exception as e:
-           return f"处理查询时出错: {str(e)}"
+                    # 处理工具调用
+                    yield "\n\n[正在调用工具进行计算...]\n\n"
+                    
+                    for tool_call in output.tool_calls:
+                        tool_name = tool_call["name"]
+                        if tool_name in self.available_tools:
+                            selected_tool = self.available_tools[tool_name]
+                            tool_result = selected_tool.invoke(tool_call["args"])
+                            messages.append(ToolMessage(
+                                content=str(tool_result),
+                                tool_call_id=tool_call["id"]
+                            ))
+                            
+                            # 工具调用结果也流式返回
+                            result_preview = str(tool_result)[:200] + "..." if len(str(tool_result)) > 200 else str(tool_result)
+                            yield result_preview
+                            yield f"\n[工具执行完成]\n"
+
+            except Exception as e:
+                return f"处理查询时出错: {str(e)}"
 
 
 

@@ -250,7 +250,7 @@
             left: 100%;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             background: linear-gradient(45deg, #1d4ed8, #2563eb);
             box-shadow: 0 6px 25px rgba(37, 99, 235, 0.4);
             transform: translateY(-2px);
@@ -261,7 +261,11 @@
             box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
         }
 
-        /* 滚动条美化 */
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         #chat-box::-webkit-scrollbar {
             width: 6px;
         }
@@ -280,7 +284,6 @@
             background: linear-gradient(45deg, #1d4ed8, #2563eb);
         }
 
-        /* Markdown样式 */
         .bubble h1, .bubble h2, .bubble h3 {
             margin: 16px 0 12px 0;
             color: #1e293b;
@@ -403,7 +406,6 @@
             color: #1d4ed8;
         }
 
-        /* 表格样式 */
         .bubble table.markdown-table {
             width: 100%;
             border-collapse: collapse;
@@ -445,7 +447,6 @@
             border-bottom: none;
         }
 
-        /* 表格响应式处理 */
         @media (max-width: 600px) {
             .bubble table.markdown-table {
                 font-size: 0.8em;
@@ -457,7 +458,6 @@
             }
         }
 
-        /* 响应式设计 */
         @media (max-width: 768px) {
             .container {
                 width: 96vw;
@@ -523,7 +523,7 @@
             <div class="input-section">
                 <form id="qa-form" autocomplete="off">
                     <textarea id="user_input" placeholder="请输入您的问题..." rows="1"></textarea>
-                    <button type="submit">发送</button>
+                    <button type="submit" id="submit-btn">发送</button>
                 </form>
             </div>
         </div>
@@ -532,31 +532,27 @@
         const chatBox = document.getElementById('chat-box');
         const form = document.getElementById('qa-form');
         const userInput = document.getElementById('user_input');
+        const submitBtn = document.getElementById('submit-btn');
         const MAX_MSGS = 30;
+        let isStreaming = false;
 
         function getTimeStr() {
             const d = new Date();
             return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        // Markdown渲染函数
         function renderMarkdown(text) {
             let html = text;
             
-            // 代码块 (```)
             html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-            
-            // 行内代码 (`)
             html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
             
-            // 表格处理
             html = html.replace(/(\|[^\n]+\|(?:\n\|[^\n]+\|)*)/g, function(match) {
                 const lines = match.trim().split('\n');
                 if (lines.length < 2) return match;
                 
                 let tableHtml = '<table class="markdown-table">';
                 
-                // 处理表头
                 const headerCells = lines[0].split('|').map(cell => cell.trim()).filter(cell => cell !== '');
                 if (headerCells.length > 0) {
                     tableHtml += '<thead><tr>';
@@ -566,7 +562,6 @@
                     tableHtml += '</tr></thead>';
                 }
                 
-                // 跳过分割行（第二行通常是 |---|---|）
                 const dataRows = lines.slice(2);
                 if (dataRows.length > 0) {
                     tableHtml += '<tbody>';
@@ -587,31 +582,23 @@
                 return tableHtml;
             });
             
-            // 标题
             html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
             html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
             html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
             html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
             
-            // 粗体
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
             
-            // 斜体
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
             html = html.replace(/_(.*?)_/g, '<em>$1</em>');
             
-            // 删除线
             html = html.replace(/~~(.*?)~~/g, '<del>$1</del>');
-            
-            // 链接
             html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
             
-            // 无序列表
             html = html.replace(/^[\s]*[-*+] (.+)$/gm, '<li>$1</li>');
             html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
             
-            // 有序列表
             html = html.replace(/^[\s]*\d+\. (.+)$/gm, '<li>$1</li>');
             html = html.replace(/(<li>.*<\/li>)/s, function(match) {
                 if (!match.includes('<ul>')) {
@@ -620,20 +607,15 @@
                 return match;
             });
             
-            // 引用
             html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
-            
-            // 水平线
             html = html.replace(/^---$/gm, '<hr>');
             html = html.replace(/^\*\*\*$/gm, '<hr>');
             
-            // 段落（将连续的非HTML行包装在p标签中）
             html = html.replace(/\n\n/g, '</p><p>');
             if (!html.startsWith('<')) {
                 html = '<p>' + html + '</p>';
             }
             
-            // 换行
             html = html.replace(/\n/g, '<br>');
             
             return html;
@@ -642,13 +624,12 @@
         function appendMsg(role, text, isHtml = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg ' + role;
+            msgDiv.dataset.msgId = Date.now();
             
-            // 头像
             const avatar = document.createElement('div');
             avatar.className = 'avatar ' + role;
             avatar.innerText = role === 'user' ? '我' : 'AI';
             
-            // 气泡
             const bubble = document.createElement('div');
             bubble.className = 'bubble ' + role;
             
@@ -662,7 +643,6 @@
                 }
             }
             
-            // 时间戳
             const timestamp = document.createElement('div');
             timestamp.className = 'timestamp';
             timestamp.innerText = getTimeStr();
@@ -679,15 +659,65 @@
             
             chatBox.appendChild(msgDiv);
             
-            // 滚动加载，最多30条
             while (chatBox.children.length > MAX_MSGS) {
                 chatBox.removeChild(chatBox.firstChild);
             }
             
             chatBox.scrollTop = chatBox.scrollHeight;
+            return msgDiv;
         }
 
-        // 自动调整输入框高度
+        async function streamAIResponse(query) {
+            const msgDiv = appendMsg('ai', '');
+            const bubble = msgDiv.querySelector('.bubble');
+            const timestamp = msgDiv.querySelector('.timestamp');
+            let fullText = '';
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.error) {
+                                    fullText += `\n[错误: ${data.error}]`;
+                                    bubble.innerHTML = renderMarkdown(fullText);
+                                } else if (data.done) {
+                                    timestamp.innerText = getTimeStr();
+                                } else if (data.content) {
+                                    fullText += data.content;
+                                    bubble.innerHTML = renderMarkdown(fullText);
+                                    chatBox.scrollTop = chatBox.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.error('解析JSON错误:', e);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('请求错误:', error);
+                bubble.innerText = '抱歉，连接服务器时出现错误，请稍后重试。';
+                timestamp.innerText = getTimeStr();
+            }
+        }
+
         function adjustTextareaHeight(textarea) {
             textarea.style.height = 'auto';
             const scrollHeight = textarea.scrollHeight;
@@ -710,10 +740,8 @@
             adjustTextareaHeight(this);
         });
 
-        // 初始化输入框高度
         adjustTextareaHeight(userInput);
 
-        // 支持回车发送，Shift+回车换行
         userInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -723,39 +751,22 @@
 
         form.onsubmit = async function (e) {
             e.preventDefault();
+            if (isStreaming) return;
+            
             const text = userInput.value.trim();
             if (!text) return;
+            
+            isStreaming = true;
+            submitBtn.disabled = true;
             
             appendMsg('user', text);
             userInput.value = '';
             adjustTextareaHeight(userInput);
             
-            appendMsg('ai', '正在思考...');
+            await streamAIResponse(text);
             
-            try {
-                const res = await fetch('/ask', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: text })
-                });
-                const data = await res.json();
-                
-                // 替换最后一条AI消息内容和时间戳
-                const aiMsgs = chatBox.querySelectorAll('.msg.ai');
-                if (aiMsgs.length > 0) {
-                    const lastAi = aiMsgs[aiMsgs.length - 1];
-                    lastAi.querySelector('.bubble').innerHTML = renderMarkdown(data.answer);
-                    lastAi.querySelector('.timestamp').innerText = getTimeStr();
-                }
-            } catch (error) {
-                // 错误处理
-                const aiMsgs = chatBox.querySelectorAll('.msg.ai');
-                if (aiMsgs.length > 0) {
-                    const lastAi = aiMsgs[aiMsgs.length - 1];
-                    lastAi.querySelector('.bubble').innerText = '抱歉，连接服务器时出现错误，请稍后重试。';
-                    lastAi.querySelector('.timestamp').innerText = getTimeStr();
-                }
-            }
+            isStreaming = false;
+            submitBtn.disabled = false;
         }
     </script>
 </body>
