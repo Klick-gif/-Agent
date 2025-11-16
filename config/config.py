@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     model="qwen3-235b-a22b-instruct-2507",
     base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
-    api_key="Your-API-KEY",
+    api_key="sk-eb8efc4f031c464c8db80722d7c7dbd1",
     streaming=True
 )
 

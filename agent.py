@@ -273,8 +273,8 @@ def search_weather(query):
     """
     根据时间和地点查询天气
     """
-    response = Application.call(api_key="sk-6790bcf8821e466bb015d5d297c413d4",
-                                app_id='2670dff3ae114560a1cda9b81c652981', prompt=query)
+    response = Application.call(api_key="sk-eb8efc4f031c464c8db80722d7c7dbd1",
+                                app_id='d7702d2629f049b99faccbeb312f919d', prompt=query)
     content = response.output.text
     print(type(content))
     return content
@@ -342,7 +342,7 @@ class BatterySchedulingAgent:
             return output.content
 
         except Exception as e:
-            return f"处理查询时出错: {str(e)}"
+           return f"处理查询时出错: {str(e)}"
 
 
 
